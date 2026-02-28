@@ -1411,10 +1411,22 @@ a {
 }
 
 .mint-ui-mint-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
+  column-gap: 1rem;
+  row-gap: 0.4rem;
+}
+
+.mint-ui-mint-top-with-countdown {
+  align-items: stretch;
+}
+
+.mint-ui-status-box {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .mint-ui-mini-label {
@@ -1458,6 +1470,8 @@ a {
 
 .mint-ui-status-countdown {
   margin-top: 0.42rem;
+  width: 100%;
+  max-width: 292px;
 }
 
 .mint-ui-status-countdown-phase {
@@ -1472,15 +1486,16 @@ a {
   margin-top: 0.28rem;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.28rem;
-  min-width: min(300px, calc(100vw - 2.6rem));
+  gap: 0.24rem;
+  min-width: 0;
+  width: 100%;
 }
 
 .mint-ui-status-countdown-item {
   border: 1px solid rgba(236, 232, 232, 0.22);
   background: rgba(18, 18, 20, 0.45);
   border-radius: 0.12rem;
-  padding: 0.34rem 0.18rem;
+  padding: 0.28rem 0.16rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1490,7 +1505,7 @@ a {
 
 .mint-ui-status-countdown-value {
   color: var(--moon-white);
-  font-size: 1.06rem;
+  font-size: 1rem;
   line-height: 1;
   letter-spacing: 0.03em;
 }
@@ -1505,6 +1520,20 @@ a {
 
 .mint-ui-price-box {
   text-align: right;
+  min-width: 128px;
+  flex-shrink: 0;
+}
+
+.mint-ui-mint-top-with-countdown .mint-ui-price-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+}
+
+.mint-ui-mint-top-with-countdown .mint-ui-price-fiat {
+  margin-top: auto;
+  padding-top: 0.24rem;
 }
 
 .mint-ui-price-row {
@@ -1513,6 +1542,7 @@ a {
   align-items: center;
   justify-content: flex-end;
   gap: 0.34rem;
+  white-space: nowrap;
 }
 
 .mint-ui-price-icon {
@@ -1526,8 +1556,9 @@ a {
 .mint-ui-price {
   margin: 0;
   color: var(--moon-white);
-  font-size: 2rem;
+  font-size: clamp(1.72rem, 3.4vw, 2rem);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .mint-ui-price-fiat {

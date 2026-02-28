@@ -817,8 +817,8 @@ export default function Home() {
           </div>
 
           <aside className="mint-ui-card mint-ui-mint-panel">
-            <div className="mint-ui-mint-top">
-              <div>
+            <div className={`mint-ui-mint-top${showUpcomingCountdown ? " mint-ui-mint-top-with-countdown" : ""}`}>
+              <div className="mint-ui-status-box">
                 <p className="mint-ui-mini-label">Status</p>
                 <p className={mintStatusClass}>{mintStatusText}</p>
                 {showUpcomingCountdown && nextMintCountdown && nextUpcomingPhase ? (
