@@ -1,0 +1,34 @@
+{
+  "generatedAt": "2026-02-26T22:42:29.621Z",
+  "totalSupply": 111,
+  "sourceDir": "/Users/yafiiviviana/Documents/Lapinoz 2",
+  "outputDir": "/Users/yafiiviviana/Documents/Megaeth Launchpad/nft-assets/output",
+  "layers": [
+    {
+      "traitType": "Background",
+      "count": 5
+    },
+    {
+      "traitType": "Base",
+      "count": 4
+    },
+    {
+      "traitType": "Clothes",
+      "count": 20
+    },
+    {
+      "traitType": "Face",
+      "count": 8
+    },
+    {
+      "traitType": "Head",
+      "count": 20
+    },
+    {
+      "traitType": "Foreground",
+      "count": 8
+    }
+  ],
+  "imageBaseUri": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/",
+  "seed": 20260227
+}

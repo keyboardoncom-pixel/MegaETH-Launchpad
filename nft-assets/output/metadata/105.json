@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #105",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/105.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Sky"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Crimson King"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Merchant"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Worried"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Pilgrim Hat"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Ritual Sword"
+    }
+  ]
+}

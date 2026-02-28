@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #63",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/63.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Ash"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Darkness"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Demon Knight"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Confused"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Mourner Hat"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Cult Staff"
+    }
+  ]
+}

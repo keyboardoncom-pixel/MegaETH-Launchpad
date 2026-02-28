@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #74",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/74.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Sage"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Crimson King"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Assassin"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Shyness"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Penitent Helmet"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Halberd"
+    }
+  ]
+}

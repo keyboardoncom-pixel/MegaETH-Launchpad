@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #58",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/58.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Brown"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Darkness"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Merchant"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Empty Smile"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Broken Knight Helmet"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Dagger"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #2",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/2.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Brown"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Crimson King"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Corrupted Noble"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Madness"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Iron Cage"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Cult Staff"
+    }
+  ]
+}

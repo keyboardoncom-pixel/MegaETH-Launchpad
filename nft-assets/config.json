@@ -1,0 +1,20 @@
+{
+  "sourceDir": "/Users/yafiiviviana/Documents/Lapinoz 2",
+  "outputDir": "/Users/yafiiviviana/Documents/Megaeth Launchpad/nft-assets/output",
+  "totalSupply": 111,
+  "collectionName": "MegaETH Launchpad",
+  "description": "Official NFT collection on MegaETH",
+  "imageBaseUri": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/",
+  "externalUrl": "",
+  "sellerFeeBasisPoints": 500,
+  "feeRecipient": "0x0000000000000000000000000000000000000000",
+  "seed": 20260227,
+  "layers": [
+    "Background",
+    "Base",
+    "Clothes",
+    "Face",
+    "Head",
+    "Foreground"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #103",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/103.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Ash"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Deep Ocean"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Peasant Tunic"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Sorrow"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Archer Hat"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Wooden Shield"
+    }
+  ]
+}

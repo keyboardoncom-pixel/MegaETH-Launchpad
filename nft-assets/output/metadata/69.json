@@ -1,0 +1,31 @@
+{
+  "name": "MegaETH Launchpad #69",
+  "description": "Official NFT collection on MegaETH",
+  "image": "ipfs://bafybeibhhxnmettox5rx76ojqc7w5ylmkg4ubhobfcwjymjrhxmjrfb7je/69.png",
+  "attributes": [
+    {
+      "trait_type": "Background",
+      "value": "Beige"
+    },
+    {
+      "trait_type": "Base",
+      "value": "Deep Ocean"
+    },
+    {
+      "trait_type": "Clothes",
+      "value": "Merchant"
+    },
+    {
+      "trait_type": "Face",
+      "value": "Shyness"
+    },
+    {
+      "trait_type": "Head",
+      "value": "Cursed Crown"
+    },
+    {
+      "trait_type": "Foreground",
+      "value": "Wooden Shield"
+    }
+  ]
+}
