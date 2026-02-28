@@ -79,6 +79,20 @@ type TxStatus = {
   message: string;
 };
 
+const toCountdownParts = (diffMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+  const days = Math.floor(totalSeconds / 86_400);
+  const hours = Math.floor((totalSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((totalSeconds % 3_600) / 60);
+  const seconds = totalSeconds % 60;
+  return {
+    days: String(days),
+    hours: String(hours).padStart(2, "0"),
+    minutes: String(minutes).padStart(2, "0"),
+    seconds: String(seconds).padStart(2, "0"),
+  };
+};
+
 const normalizeMintErrorMessage = (error: any) => {
   const rawParts = [
     error?.reason,
@@ -196,6 +210,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [status, setStatus] = useState<TxStatus>({ type: "idle", message: "" });
   const [phases, setPhases] = useState<Phase[]>([]);
+  const [clockMs, setClockMs] = useState(() => Date.now());
   const [allowlistEligible, setAllowlistEligible] = useState<boolean | null>(null);
   const [notRevealedURI, setNotRevealedURI] = useState("");
   const [ethUsdRate, setEthUsdRate] = useState<number | null>(null);
@@ -268,6 +283,11 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setClockMs(Date.now()), 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   const refreshAll = async () => {
@@ -480,6 +500,22 @@ export default function Home() {
 
   const activePhase = phases.find((phase) => getPhaseStatus(phase) === "live") || phases[0];
   const phaseLive = activePhase ? getPhaseStatus(activePhase) === "live" : false;
+  const nextUpcomingPhase = useMemo(() => {
+    const upcoming = phases
+      .map((phase) => ({
+        phase,
+        startTs: Number(phase.startsAt || 0),
+      }))
+      .filter((entry) => Number.isFinite(entry.startTs) && entry.startTs > 0 && entry.startTs * 1000 > clockMs)
+      .sort((a, b) => a.startTs - b.startTs);
+    return upcoming[0]?.phase || null;
+  }, [phases, clockMs]);
+  const nextMintCountdown = useMemo(() => {
+    if (!nextUpcomingPhase?.startsAt) return null;
+    const diffMs = Number(nextUpcomingPhase.startsAt) * 1000 - clockMs;
+    return toCountdownParts(diffMs);
+  }, [nextUpcomingPhase, clockMs]);
+  const showUpcomingCountdown = !paused && !phaseLive && !!nextMintCountdown;
   const allowlistRequired = Boolean(activePhase?.allowlistEnabled);
   const allowlistOk = !allowlistRequired || Boolean(allowlistEligible);
   const remainingSupply = Math.max(maxNum - totalNum, 0);
@@ -507,11 +543,19 @@ export default function Home() {
   );
   const canIncreaseQuantity = maxMintable > 0 && quantity < maxMintable;
   const isMinting = status.type === "pending";
-  const mintStatusText = paused ? "Paused" : phaseLive ? "Live Minting" : "Closed";
+  const mintStatusText = paused
+    ? "Paused"
+    : phaseLive
+    ? "Live Minting"
+    : showUpcomingCountdown
+    ? "Minting In"
+    : "Closed";
   const mintStatusClass = paused
     ? "mint-ui-pill mint-ui-pill-paused"
     : phaseLive
     ? "mint-ui-pill mint-ui-pill-live"
+    : showUpcomingCountdown
+    ? "mint-ui-pill mint-ui-pill-upcoming"
     : "mint-ui-pill";
   const canMint = useMemo(() => {
     return (
@@ -777,6 +821,29 @@ export default function Home() {
               <div>
                 <p className="mint-ui-mini-label">Status</p>
                 <p className={mintStatusClass}>{mintStatusText}</p>
+                {showUpcomingCountdown && nextMintCountdown && nextUpcomingPhase ? (
+                  <div className="mint-ui-status-countdown">
+                    <p className="mint-ui-status-countdown-phase">{nextUpcomingPhase.name || "Next phase"}</p>
+                    <div className="mint-ui-status-countdown-grid">
+                      <div className="mint-ui-status-countdown-item">
+                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.days}</span>
+                        <span className="mint-ui-status-countdown-unit">Days</span>
+                      </div>
+                      <div className="mint-ui-status-countdown-item">
+                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.hours}</span>
+                        <span className="mint-ui-status-countdown-unit">Hours</span>
+                      </div>
+                      <div className="mint-ui-status-countdown-item">
+                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.minutes}</span>
+                        <span className="mint-ui-status-countdown-unit">Mins</span>
+                      </div>
+                      <div className="mint-ui-status-countdown-item">
+                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.seconds}</span>
+                        <span className="mint-ui-status-countdown-unit">Secs</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               <div className="mint-ui-price-box">
                 <p className="mint-ui-mini-label">Price</p>
