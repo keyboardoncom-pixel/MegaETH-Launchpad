@@ -362,12 +362,28 @@ export default function Home() {
   }, [mounted]);
 
   const fetchAllowlistProof = async (phaseId: number, wallet: string) => {
-    try {
-      const res = await fetch(`/allowlists/phase-${phaseId}.json`, { cache: "no-store" });
-      if (!res.ok) return [];
-      const data = await res.json();
-      const proof = data?.proofs?.[wallet.toLowerCase()];
+    const walletKey = wallet.toLowerCase();
+    const extractProof = (data: any) => {
+      const proof = data?.proofs?.[walletKey];
       return Array.isArray(proof) ? proof : [];
+    };
+
+    try {
+      const apiRes = await fetch(`/api/allowlists/proof?phaseId=${phaseId}`, { cache: "no-store" });
+      if (apiRes.ok) {
+        const apiData = await apiRes.json();
+        const apiProof = extractProof(apiData);
+        if (apiProof.length) return apiProof;
+      }
+    } catch {
+      // fallback to static file
+    }
+
+    try {
+      const staticRes = await fetch(`/allowlists/phase-${phaseId}.json`, { cache: "no-store" });
+      if (!staticRes.ok) return [];
+      const staticData = await staticRes.json();
+      return extractProof(staticData);
     } catch {
       return [];
     }

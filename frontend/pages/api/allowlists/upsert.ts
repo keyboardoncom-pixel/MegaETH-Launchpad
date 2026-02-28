@@ -24,6 +24,7 @@ const isLikelySignature = (value: unknown): value is string =>
   typeof value === "string" && /^0x[a-fA-F0-9]{130,132}$/.test(value);
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || "";
+const CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || 0);
 const RPC_URL = process.env.NEXT_PUBLIC_RPC_URL || "";
 const RPC_FALLBACK_URLS = (process.env.NEXT_PUBLIC_RPC_FALLBACK_URLS || "")
   .split(",")
@@ -46,6 +47,8 @@ const ALLOWLIST_API_ORIGINS = (process.env.ALLOWLIST_API_ORIGINS || "")
     }
   })
   .filter(Boolean);
+const KV_REST_API_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || "";
+const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || "";
 
 const usedSignatures = new Map<string, number>();
 const rateLimitBuckets = new Map<string, { count: number; resetAt: number }>();
@@ -177,6 +180,43 @@ const cleanupUsedSignatures = () => {
       usedSignatures.delete(key);
     }
   }
+};
+
+const kvConfigured = () => KV_REST_API_URL.length > 0 && KV_REST_API_TOKEN.length > 0;
+
+const getAllowlistKvKey = (phaseId: number) => {
+  const chainSegment = Number.isInteger(CHAIN_ID) && CHAIN_ID > 0 ? String(CHAIN_ID) : "unknown";
+  return `allowlist-proof:${CONTRACT_ADDRESS.toLowerCase()}:${chainSegment}:${phaseId}`;
+};
+
+const callKv = async (command: (string | number)[]) => {
+  const response = await fetch(KV_REST_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${KV_REST_API_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(command),
+  });
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new Error(`KV request failed (${response.status}): ${body || "unknown error"}`);
+  }
+
+  const payload = (await response.json()) as { result?: unknown; error?: string };
+  if (typeof payload?.error === "string" && payload.error) {
+    throw new Error(payload.error);
+  }
+
+  return payload?.result;
+};
+
+const saveAllowlistToKv = async (phaseId: number, serializedPayload: string) => {
+  if (!kvConfigured()) {
+    throw new Error("KV_REST_API_* is not configured.");
+  }
+  await callKv(["SET", getAllowlistKvKey(phaseId), serializedPayload]);
 };
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<UpsertResponse>) {
@@ -311,24 +351,58 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     return res.status(403).json({ ok: false, error: "Only contract owner can publish proof" });
   }
 
+  const serialized = JSON.stringify(payload, null, 2);
+  let savedToFile = false;
+  let savedToKv = false;
+  let fileError = "";
+  let kvError = "";
+
   try {
     const allowlistDir = path.join(process.cwd(), "public", "allowlists");
     await fs.mkdir(allowlistDir, { recursive: true });
     const filePath = path.join(allowlistDir, `phase-${phaseId}.json`);
-    const serialized = JSON.stringify(payload, null, 2);
     try {
       const existing = await fs.readFile(filePath, "utf-8");
       if (existing.trim() === serialized.trim()) {
-        usedSignatures.set(signatureKey, now);
-        return res.status(200).json({ ok: true, path: `/allowlists/phase-${phaseId}.json` });
+        savedToFile = true;
       }
     } catch {
       // File not found is expected for a new phase.
     }
-    await fs.writeFile(filePath, serialized, "utf-8");
-    usedSignatures.set(signatureKey, now);
-    return res.status(200).json({ ok: true, path: `/allowlists/phase-${phaseId}.json` });
-  } catch {
-    return res.status(500).json({ ok: false, error: "Failed to write proof file on server" });
+
+    if (!savedToFile) {
+      await fs.writeFile(filePath, serialized, "utf-8");
+      savedToFile = true;
+    }
+  } catch (error: any) {
+    fileError = error?.message || "Failed to write proof file on server";
   }
+
+  if (kvConfigured()) {
+    try {
+      await saveAllowlistToKv(phaseId, serialized);
+      savedToKv = true;
+    } catch (error: any) {
+      kvError = error?.message || "Failed to write proof payload to KV";
+    }
+  }
+
+  if (!savedToFile && !savedToKv) {
+    if (!kvConfigured()) {
+      return res
+        .status(500)
+        .json({ ok: false, error: `${fileError || "Failed to write proof file on server"}. Configure KV_REST_API_* for auto-publish on serverless.` });
+    }
+    return res
+      .status(500)
+      .json({ ok: false, error: `${fileError || "Failed to write proof file on server"}; ${kvError || "Failed to write proof payload to KV"}` });
+  }
+
+  usedSignatures.set(signatureKey, now);
+
+  if (savedToKv) {
+    return res.status(200).json({ ok: true, path: `/api/allowlists/proof?phaseId=${phaseId}` });
+  }
+
+  return res.status(200).json({ ok: true, path: `/allowlists/phase-${phaseId}.json` });
 }
