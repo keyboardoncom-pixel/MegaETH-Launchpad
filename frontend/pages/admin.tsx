@@ -26,15 +26,21 @@ import {
   formatAddress,
   getReadContract,
   getWriteContract,
+  getWriteSigner,
   isSameAddress,
   TARGET_CHAIN_ID,
   withReadRetry,
 } from "../lib/contract";
 import {
+  buildLaunchpadUiPayloadHash,
+  buildLaunchpadUiPublishMessage,
   LaunchpadUiDefaults,
+  LaunchpadUiSettings,
   getLaunchpadUiStorageKey,
   loadLaunchpadUiSettings,
+  normalizeLaunchpadUiDefaults,
   saveLaunchpadUiSettings,
+  toLaunchpadUiSettings,
 } from "../lib/launchpadUi";
 import WalletMenu from "../components/WalletMenu";
 import { Phase, formatPhaseWindow, fromInputDateTime, getPhaseStatus, toInputDateTime } from "../lib/phases";
@@ -372,8 +378,6 @@ export default function Admin() {
   const allowlistCsvInputRef = useRef<HTMLInputElement | null>(null);
   const [activePhaseInfo, setActivePhaseInfo] = useState<{ id: number; name: string } | null>(null);
   const [launchpadUiForm, setLaunchpadUiForm] = useState<LaunchpadUiDefaults>(LAUNCHPAD_UI_DEFAULTS);
-  const [launchpadUiSavedSnapshot, setLaunchpadUiSavedSnapshot] =
-    useState<LaunchpadUiDefaults>(LAUNCHPAD_UI_DEFAULTS);
   const [launchpadUiSavedAt, setLaunchpadUiSavedAt] = useState<number | null>(null);
   const [appearanceSaveState, setAppearanceSaveState] = useState<"saved" | "saving" | "unsaved">("saved");
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
@@ -1154,58 +1158,126 @@ export default function Admin() {
     window.localStorage.setItem(key, JSON.stringify(wallets));
   };
 
-  const loadLaunchpadUiForm = () => {
-    const loaded = loadLaunchpadUiSettings(launchpadUiStorageKey, LAUNCHPAD_UI_DEFAULTS);
-    const nextValues = {
-      collectionName: loaded.collectionName,
-      collectionDescription: loaded.collectionDescription,
-      collectionBannerUrl: loaded.collectionBannerUrl,
-      collectionWebsite: loaded.collectionWebsite,
-      collectionTwitter: loaded.collectionTwitter,
-    };
+  const applyLaunchpadUiForm = (loaded: LaunchpadUiSettings) => {
+    const nextValues = normalizeLaunchpadUiDefaults(loaded, LAUNCHPAD_UI_DEFAULTS);
     setLaunchpadUiForm(nextValues);
-    setLaunchpadUiSavedSnapshot(nextValues);
     setLaunchpadUiSavedAt(loaded.updatedAt || Date.now());
     setAppearanceSaveState("saved");
   };
 
-  useEffect(() => {
-    if (!mounted) return;
-    loadLaunchpadUiForm();
-  }, [mounted, launchpadUiStorageKey]);
-
-  const handleSaveLaunchpadUi = () => {
-    if (!ensureReady()) return;
-    const nextValues: LaunchpadUiDefaults = {
-      collectionName: launchpadUiForm.collectionName.trim() || LAUNCHPAD_UI_DEFAULTS.collectionName,
-      collectionDescription:
-        launchpadUiForm.collectionDescription.trim() || LAUNCHPAD_UI_DEFAULTS.collectionDescription,
-      collectionBannerUrl: launchpadUiForm.collectionBannerUrl.trim(),
-      collectionWebsite: launchpadUiForm.collectionWebsite.trim(),
-      collectionTwitter: launchpadUiForm.collectionTwitter.trim(),
-    };
-    saveLaunchpadUiSettings(launchpadUiStorageKey, {
-      ...nextValues,
-      updatedAt: Date.now(),
-    });
-    setLaunchpadUiForm(nextValues);
-    setLaunchpadUiSavedSnapshot(nextValues);
-    setLaunchpadUiSavedAt(Date.now());
-    setAppearanceSaveState("saved");
-    setStatus({ type: "success", message: "Launchpad appearance saved." });
+  const fetchLaunchpadUiFromServer = async () => {
+    const response = await fetch("/api/launchpad-ui", { method: "GET", cache: "no-store" });
+    const payload = (await response.json().catch(() => null)) as
+      | { ok: true; settings?: Partial<LaunchpadUiSettings> }
+      | { ok: false; error?: string }
+      | null;
+    if (!response.ok || !payload?.ok) {
+      const error =
+        payload && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Failed to load launchpad settings from server.";
+      throw new Error(error);
+    }
+    return toLaunchpadUiSettings(payload.settings, LAUNCHPAD_UI_DEFAULTS);
   };
 
-  const handleResetLaunchpadUi = () => {
-    if (!ensureReady()) return;
-    saveLaunchpadUiSettings(launchpadUiStorageKey, {
-      ...LAUNCHPAD_UI_DEFAULTS,
-      updatedAt: Date.now(),
+  const publishLaunchpadUiToServer = async (nextValues: LaunchpadUiDefaults) => {
+    const chainIdForSignature = TARGET_CHAIN_ID || chain?.id;
+    if (!chainIdForSignature) {
+      throw new Error("Missing chain id for launchpad settings signature.");
+    }
+
+    const signer = await getWriteSigner(account, chain);
+    const signerAddress = await signer.getAddress();
+    const payloadHash = buildLaunchpadUiPayloadHash(nextValues);
+    const timestamp = Date.now();
+    const message = buildLaunchpadUiPublishMessage({
+      contractAddress: CONTRACT_ADDRESS,
+      chainId: chainIdForSignature,
+      payloadHash,
+      timestamp,
     });
-    setLaunchpadUiForm(LAUNCHPAD_UI_DEFAULTS);
-    setLaunchpadUiSavedSnapshot(LAUNCHPAD_UI_DEFAULTS);
-    setLaunchpadUiSavedAt(Date.now());
-    setAppearanceSaveState("saved");
-    setStatus({ type: "success", message: "Launchpad appearance reset to defaults." });
+    const signature = await signer.signMessage(message);
+
+    const response = await fetch("/api/launchpad-ui", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        settings: nextValues,
+        signer: signerAddress,
+        payloadHash,
+        timestamp,
+        signature,
+      }),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { ok: true; settings?: Partial<LaunchpadUiSettings> }
+      | { ok: false; error?: string }
+      | null;
+    if (!response.ok || !payload?.ok) {
+      const error =
+        payload && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "Failed to save launchpad settings on server.";
+      throw new Error(error);
+    }
+    return toLaunchpadUiSettings(payload.settings, LAUNCHPAD_UI_DEFAULTS);
+  };
+
+  const loadLaunchpadUiForm = async () => {
+    const local = loadLaunchpadUiSettings(launchpadUiStorageKey, LAUNCHPAD_UI_DEFAULTS);
+    applyLaunchpadUiForm(local);
+
+    try {
+      const remote = await fetchLaunchpadUiFromServer();
+      const remoteIsNewer = (remote.updatedAt || 0) >= (local.updatedAt || 0);
+      if (remoteIsNewer) {
+        applyLaunchpadUiForm(remote);
+        saveLaunchpadUiSettings(launchpadUiStorageKey, remote);
+      }
+    } catch {
+      // Keep local snapshot if server settings are unavailable.
+    }
+  };
+
+  useEffect(() => {
+    if (!mounted) return;
+    void loadLaunchpadUiForm();
+  }, [mounted, launchpadUiStorageKey]);
+
+  const handleSaveLaunchpadUi = async () => {
+    if (!ensureReady()) return;
+    const nextValues = normalizeLaunchpadUiDefaults(launchpadUiForm, LAUNCHPAD_UI_DEFAULTS);
+    setAppearanceSaveState("saving");
+    try {
+      const persisted = await publishLaunchpadUiToServer(nextValues);
+      saveLaunchpadUiSettings(launchpadUiStorageKey, persisted);
+      applyLaunchpadUiForm(persisted);
+      setStatus({ type: "success", message: "Launchpad appearance saved for all devices." });
+    } catch (error: any) {
+      setAppearanceSaveState("unsaved");
+      setStatus({ type: "error", message: error?.message || "Failed to save launchpad appearance." });
+    }
+  };
+
+  const handleResetLaunchpadUi = async () => {
+    if (!ensureReady()) return;
+    setAppearanceSaveState("saving");
+    try {
+      const defaults = normalizeLaunchpadUiDefaults(LAUNCHPAD_UI_DEFAULTS, LAUNCHPAD_UI_DEFAULTS);
+      const persisted = await publishLaunchpadUiToServer(defaults);
+      saveLaunchpadUiSettings(launchpadUiStorageKey, persisted);
+      applyLaunchpadUiForm(persisted);
+      setStatus({ type: "success", message: "Launchpad appearance reset for all devices." });
+    } catch (error: any) {
+      setAppearanceSaveState("unsaved");
+      setStatus({
+        type: "error",
+        message: error?.message || "Failed to reset launchpad appearance.",
+      });
+    }
   };
 
   const handleAllowlistCsvChange = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1316,10 +1388,6 @@ export default function Admin() {
     };
   }, [launchpadUiForm]);
 
-  const launchpadUiDirty = useMemo(() => {
-    return JSON.stringify(normalizedLaunchpadUiForm) !== JSON.stringify(launchpadUiSavedSnapshot);
-  }, [normalizedLaunchpadUiForm, launchpadUiSavedSnapshot]);
-
   const contractAddressShort = CONTRACT_ADDRESS ? formatAddress(CONTRACT_ADDRESS) : "Not set";
   const ownerShort = owner ? formatAddress(owner) : "Loading...";
   const walletShort = address ? formatAddress(address) : "Not connected";
@@ -1416,22 +1484,6 @@ export default function Admin() {
       return [...preserved, ...additions];
     });
   }, [phases]);
-
-  useEffect(() => {
-    if (!mounted || !launchpadUiDirty) return;
-    setAppearanceSaveState("saving");
-    const timeout = window.setTimeout(() => {
-      const now = Date.now();
-      saveLaunchpadUiSettings(launchpadUiStorageKey, {
-        ...normalizedLaunchpadUiForm,
-        updatedAt: now,
-      });
-      setLaunchpadUiSavedSnapshot(normalizedLaunchpadUiForm);
-      setLaunchpadUiSavedAt(now);
-      setAppearanceSaveState("saved");
-    }, 850);
-    return () => window.clearTimeout(timeout);
-  }, [mounted, launchpadUiDirty, launchpadUiStorageKey, normalizedLaunchpadUiForm]);
 
   const handlePhaseDrop = (targetPhaseId: number) => {
     if (draggingPhaseId === null || draggingPhaseId === targetPhaseId) return;
@@ -2274,7 +2326,7 @@ export default function Admin() {
                           {appearanceSaveState === "saved"
                             ? "Saved"
                             : appearanceSaveState === "saving"
-                            ? "Auto-saving..."
+                            ? "Saving..."
                             : "Unsaved changes"}
                         </span>
                         <span className="admin-overview-helper">
@@ -2329,10 +2381,20 @@ export default function Admin() {
                       </label>
                     </div>
                     <div className="admin-phase-actions">
-                      <button type="button" className="admin-btn admin-btn-primary" onClick={handleSaveLaunchpadUi}>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-primary"
+                        onClick={() => void handleSaveLaunchpadUi()}
+                        disabled={appearanceSaveState === "saving"}
+                      >
                         Save Appearance
                       </button>
-                      <button type="button" className="admin-btn admin-btn-ghost" onClick={handleResetLaunchpadUi}>
+                      <button
+                        type="button"
+                        className="admin-btn admin-btn-ghost"
+                        onClick={() => void handleResetLaunchpadUi()}
+                        disabled={appearanceSaveState === "saving"}
+                      >
                         Reset Default
                       </button>
                     </div>

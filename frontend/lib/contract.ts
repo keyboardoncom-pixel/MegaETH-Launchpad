@@ -389,15 +389,19 @@ export async function getWriteContract(account?: any, chain?: any) {
   if (!CONTRACT_ADDRESS) {
     throw new Error("Missing NEXT_PUBLIC_CONTRACT_ADDRESS");
   }
+  const signer = await getWriteSigner(account, chain);
+  return new ethers.Contract(CONTRACT_ADDRESS, MINTNFT_ABI, signer);
+}
+
+export async function getWriteSigner(account?: any, chain?: any) {
   if (!account) {
     throw new Error("Wallet not connected");
   }
-  const signer = await ethers5Adapter.signer.toEthers({
+  return ethers5Adapter.signer.toEthers({
     client: THIRDWEB_CLIENT,
     account,
     chain: chain ?? TARGET_CHAIN,
   });
-  return new ethers.Contract(CONTRACT_ADDRESS, MINTNFT_ABI, signer);
 }
 
 export async function withReadRetry<T>(task: () => Promise<T>): Promise<T> {

@@ -13,9 +13,12 @@ import {
 import {
   LAUNCHPAD_UI_SETTINGS_EVENT,
   LaunchpadUiDefaults,
+  LaunchpadUiSettings,
   buildDefaultLaunchpadUiSettings,
   getLaunchpadUiStorageKey,
   loadLaunchpadUiSettings,
+  saveLaunchpadUiSettings,
+  toLaunchpadUiSettings,
 } from "../lib/launchpadUi";
 import { Phase, formatPhaseWindow, getPhaseStatus } from "../lib/phases";
 import WalletMenu from "../components/WalletMenu";
@@ -274,27 +277,56 @@ export default function Home() {
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
 
-    const syncUiSettings = () => {
+    const syncUiSettingsFromLocal = () => {
       setUiSettings(loadLaunchpadUiSettings(launchpadUiStorageKey, LAUNCHPAD_UI_DEFAULTS));
     };
 
-    syncUiSettings();
+    const syncUiSettingsFromServer = async () => {
+      try {
+        const response = await fetch("/api/launchpad-ui", { method: "GET", cache: "no-store" });
+        const payload = (await response.json().catch(() => null)) as
+          | { ok: true; settings?: Partial<LaunchpadUiSettings> }
+          | { ok: false; error?: string }
+          | null;
+        if (!response.ok || !payload?.ok) {
+          return;
+        }
+        const remote = toLaunchpadUiSettings(payload.settings, LAUNCHPAD_UI_DEFAULTS);
+        const local = loadLaunchpadUiSettings(launchpadUiStorageKey, LAUNCHPAD_UI_DEFAULTS);
+        const remoteIsNewer = (remote.updatedAt || 0) >= (local.updatedAt || 0);
+        if (remoteIsNewer) {
+          saveLaunchpadUiSettings(launchpadUiStorageKey, remote);
+          setUiSettings(remote);
+          return;
+        }
+        setUiSettings(local);
+      } catch {
+        // Keep local cache if server settings are unavailable.
+      }
+    };
+
+    syncUiSettingsFromLocal();
+    void syncUiSettingsFromServer();
 
     const onStorage = (event: StorageEvent) => {
       if (!event.key || event.key === launchpadUiStorageKey) {
-        syncUiSettings();
+        syncUiSettingsFromLocal();
       }
     };
     const onSettingsUpdated = (event: Event) => {
       const customEvent = event as CustomEvent<{ key?: string }>;
       if (!customEvent.detail?.key || customEvent.detail.key === launchpadUiStorageKey) {
-        syncUiSettings();
+        syncUiSettingsFromLocal();
       }
     };
 
     window.addEventListener("storage", onStorage);
     window.addEventListener(LAUNCHPAD_UI_SETTINGS_EVENT, onSettingsUpdated as EventListener);
+    const timer = window.setInterval(() => {
+      void syncUiSettingsFromServer();
+    }, 30_000);
     return () => {
+      window.clearInterval(timer);
       window.removeEventListener("storage", onStorage);
       window.removeEventListener(LAUNCHPAD_UI_SETTINGS_EVENT, onSettingsUpdated as EventListener);
     };
