@@ -603,6 +603,100 @@ a {
   text-transform: uppercase;
 }
 
+.wallet-pop-nfts-heading {
+  margin-bottom: 0.54rem;
+}
+
+.wallet-pop-nfts-count {
+  min-width: 1.8rem;
+  height: 1.15rem;
+  border: 1px solid rgba(25, 25, 26, 0.24);
+  background: rgba(255, 255, 255, 0.48);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+}
+
+.wallet-nft-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.46rem;
+}
+
+.wallet-nft-card {
+  border: 1px dashed rgba(25, 25, 26, 0.28);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.66), rgba(236, 232, 232, 0.92)),
+    url("/megaeth-assets/bg.png");
+  background-size: cover;
+  aspect-ratio: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.wallet-nft-card-image {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.wallet-nft-card-id {
+  border-top: 1px solid rgba(25, 25, 26, 0.2);
+  padding: 0.16rem 0.22rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.04em;
+  color: rgba(18, 18, 21, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wallet-nft-card-loading {
+  animation: wallet-nft-pulse 0.95s ease-in-out infinite alternate;
+}
+
+.wallet-nft-empty {
+  grid-column: 1 / -1;
+  border: 1px dashed rgba(25, 25, 26, 0.24);
+  background: rgba(255, 255, 255, 0.45);
+  min-height: 76px;
+  display: grid;
+  place-items: center;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  color: rgba(25, 25, 26, 0.74);
+  text-transform: uppercase;
+}
+
+.wallet-nft-meta {
+  margin: 0.52rem 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: rgba(25, 25, 26, 0.72);
+}
+
+.wallet-nft-error {
+  margin: 0.22rem 0 0;
+  font-size: 0.64rem;
+  letter-spacing: 0.03em;
+  color: #8a2d3d;
+}
+
+@keyframes wallet-nft-pulse {
+  from {
+    opacity: 0.48;
+  }
+  to {
+    opacity: 0.88;
+  }
+}
+
 .wallet-pop-profile-head {
   margin-bottom: 0.54rem;
 }
@@ -802,6 +896,7 @@ a {
 }
 
 .wallet-profile-popover .wallet-popover-grid {
+  grid-template-columns: minmax(180px, 1fr) minmax(268px, 1.5fr) minmax(230px, 1.18fr);
   min-height: 250px;
 }
 
@@ -815,6 +910,18 @@ a {
 
 .wallet-profile-popover .wallet-asset-list {
   gap: 0.62rem;
+}
+
+.wallet-profile-popover .wallet-nft-grid {
+  gap: 0.42rem;
+}
+
+.wallet-profile-popover .wallet-nft-card-id {
+  font-size: 0.58rem;
+}
+
+.wallet-profile-popover .wallet-nft-meta {
+  font-size: 0.64rem;
 }
 
 .wallet-profile-popover .wallet-asset-name {
@@ -1902,6 +2009,10 @@ a {
 
   .wallet-connect-popover .wallet-powered-by-text {
     display: none;
+  }
+
+  .wallet-profile-popover .wallet-nft-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .wallet-profile-row {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ethers } from "ethers";
 import {
   useActiveAccount,
   useActiveWallet,
@@ -11,6 +12,7 @@ import {
 import { createWallet, getWalletInfo } from "thirdweb/wallets";
 import { ArrowRightOnRectangleIcon, WalletIcon } from "@heroicons/react/24/outline";
 import { THIRDWEB_CLIENT, TARGET_CHAIN } from "../lib/thirdweb";
+import { getReadContract, withReadRetry } from "../lib/contract";
 
 const EYE_ICON_ASSET = "/megaeth-assets/34d21957-44d3-485b-aaa8-cceeb44fa0a2.svg";
 const COPY_ICON_ASSET = "/megaeth-assets/0565fe0f-b764-430e-a8a3-c58ef5b4d7a4.svg";
@@ -18,6 +20,10 @@ const OPEN_ICON_ASSET = "/megaeth-assets/f4b712b6-c4bd-4012-98d8-b04a6b57bab1.sv
 const MEGAETH_LOGO_ASSET = "/megaeth-assets/4afa304f-02e0-4249-b5cd-6ee5a6627079.svg";
 const EARTH_VIDEO_ASSET = "/megaeth-assets/earth.webm";
 const DEFAULT_WALLET_ICON_ASSET = "/wallets/more.svg";
+const NFT_CARD_FALLBACK_IMAGE = "/megaeth-assets/image_7.png";
+const DEPLOY_BLOCK = Number(process.env.NEXT_PUBLIC_DEPLOY_BLOCK || 0);
+const MINT_EVENT_QUERY_BLOCK_CHUNK = 40_000;
+const NFT_PREVIEW_LIMIT = 8;
 const WALLET_ICON_BY_ID: Record<string, string> = {
   "io.metamask": "/wallets/metamask.svg",
   "com.coinbase.wallet": "/wallets/coinbase.svg",
@@ -35,6 +41,51 @@ type WalletOption = {
   label: string;
   subtitle: string;
   fallbackIcon: string;
+};
+
+const normalizeMediaUri = (uri: string) => {
+  if (!uri) return uri;
+  if (uri.startsWith("ipfs://")) {
+    return `https://ipfs.io/ipfs/${uri.replace("ipfs://", "")}`;
+  }
+  return uri;
+};
+
+const shouldChunkLogQuery = (error: any) => {
+  const message = String(
+    error?.message || error?.reason || error?.data?.message || error?.error?.message || ""
+  ).toLowerCase();
+  return (
+    message.includes("block range") ||
+    message.includes("query returned more than") ||
+    message.includes("too many results") ||
+    message.includes("response size") ||
+    message.includes("limit exceeded")
+  );
+};
+
+const queryMintEventsWithFallback = async (
+  contract: any,
+  ownerAddress: string,
+  fromBlock: number,
+  toBlock: number
+) => {
+  const mintFilter = contract.filters.Transfer(ethers.constants.AddressZero, ownerAddress);
+  try {
+    return await withReadRetry<any[]>(() => contract.queryFilter(mintFilter, fromBlock, toBlock));
+  } catch (error: any) {
+    if (!shouldChunkLogQuery(error)) {
+      throw error;
+    }
+  }
+
+  const events: any[] = [];
+  for (let start = fromBlock; start <= toBlock; start += MINT_EVENT_QUERY_BLOCK_CHUNK) {
+    const end = Math.min(toBlock, start + MINT_EVENT_QUERY_BLOCK_CHUNK - 1);
+    const partial = await withReadRetry<any[]>(() => contract.queryFilter(mintFilter, start, end));
+    events.push(...partial);
+  }
+  return events;
 };
 
 const CONNECT_MODAL_WALLET_IDS: Parameters<typeof createWallet>[0][] = [
@@ -116,6 +167,10 @@ export default function WalletMenu({ onStatus }: WalletMenuProps) {
   const [connectWalletIconById, setConnectWalletIconById] = useState<Record<string, string>>({});
   const [memberSince, setMemberSince] = useState("");
   const [txCount, setTxCount] = useState(0);
+  const [mintedTokenIds, setMintedTokenIds] = useState<string[]>([]);
+  const [mintedNftLoading, setMintedNftLoading] = useState(false);
+  const [mintedNftError, setMintedNftError] = useState("");
+  const [nftTileImage, setNftTileImage] = useState(NFT_CARD_FALLBACK_IMAGE);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +228,10 @@ export default function WalletMenu({ onStatus }: WalletMenuProps) {
     if (!account?.address || typeof window === "undefined") {
       setMemberSince("");
       setTxCount(0);
+      setMintedTokenIds([]);
+      setMintedNftError("");
+      setMintedNftLoading(false);
+      setNftTileImage(NFT_CARD_FALLBACK_IMAGE);
       return;
     }
 
@@ -193,6 +252,51 @@ export default function WalletMenu({ onStatus }: WalletMenuProps) {
     const storedTx = Number(window.localStorage.getItem(txKey) || "0");
     setTxCount(Number.isFinite(storedTx) && storedTx > 0 ? Math.floor(storedTx) : 0);
   }, [account?.address]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadMintedNfts = async () => {
+      if (!open || !account?.address) return;
+      setMintedNftLoading(true);
+      setMintedNftError("");
+      try {
+        const contract = getReadContract();
+        const provider = contract.provider;
+        const latestBlock = await withReadRetry<number>(() => provider.getBlockNumber());
+        const fromBlock = Number.isFinite(DEPLOY_BLOCK) && DEPLOY_BLOCK > 0 ? DEPLOY_BLOCK : Math.max(0, latestBlock - 1_500_000);
+        const [events, notRevealedUriRaw] = await Promise.all([
+          queryMintEventsWithFallback(contract, account.address, fromBlock, latestBlock),
+          withReadRetry<string>(() => contract.notRevealedURI()).catch(() => ""),
+        ]);
+        const mintedIds = Array.from(
+          new Set(
+            events
+              .map((event: any) => event?.args?.tokenId)
+              .filter(Boolean)
+              .map((tokenId: any) => tokenId.toString())
+          )
+        ).sort((a, b) => Number(b) - Number(a));
+
+        if (cancelled) return;
+        setMintedTokenIds(mintedIds);
+        const resolvedImage = normalizeMediaUri(String(notRevealedUriRaw || ""));
+        setNftTileImage(resolvedImage || NFT_CARD_FALLBACK_IMAGE);
+      } catch {
+        if (cancelled) return;
+        setMintedTokenIds([]);
+        setNftTileImage(NFT_CARD_FALLBACK_IMAGE);
+        setMintedNftError("Unable to load minted NFTs right now.");
+      } finally {
+        if (!cancelled) {
+          setMintedNftLoading(false);
+        }
+      }
+    };
+    void loadMintedNfts();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, account?.address]);
 
   const activeDays = useMemo(() => {
     if (!memberSince) return 1;
@@ -225,6 +329,9 @@ export default function WalletMenu({ onStatus }: WalletMenuProps) {
     const walletId = wallet?.id || "";
     return walletImage || WALLET_ICON_BY_ID[walletId] || DEFAULT_WALLET_ICON_ASSET;
   }, [wallet?.id, walletImage]);
+
+  const mintedPreviewIds = useMemo(() => mintedTokenIds.slice(0, NFT_PREVIEW_LIMIT), [mintedTokenIds]);
+  const mintedRemainderCount = Math.max(0, mintedTokenIds.length - mintedPreviewIds.length);
 
   const connectModalWallets = useMemo(() => {
     return CONNECT_MODAL_WALLET_IDS.map((walletId) => createWallet(walletId));
@@ -471,6 +578,38 @@ export default function WalletMenu({ onStatus }: WalletMenuProps) {
                   </div>
                 </div>
               </div>
+            </section>
+
+            <section className="wallet-pop-column wallet-pop-nfts">
+              <header className="wallet-pop-heading wallet-pop-nfts-heading">
+                <h3>Minted NFTs</h3>
+                <span className="wallet-pop-nfts-count">{mintedTokenIds.length}</span>
+              </header>
+              <div className="wallet-nft-grid">
+                {mintedNftLoading
+                  ? Array.from({ length: NFT_PREVIEW_LIMIT }).map((_, index) => (
+                      <div key={`loading-${index}`} className="wallet-nft-card wallet-nft-card-loading" />
+                    ))
+                  : mintedPreviewIds.map((tokenId) => (
+                      <div key={tokenId} className="wallet-nft-card" title={`Token #${tokenId}`}>
+                        <img src={nftTileImage} alt={`NFT #${tokenId}`} className="wallet-nft-card-image" />
+                        <span className="wallet-nft-card-id">#{tokenId}</span>
+                      </div>
+                    ))}
+                {!mintedNftLoading && mintedPreviewIds.length === 0 ? (
+                  <div className="wallet-nft-empty">No minted NFT yet</div>
+                ) : null}
+              </div>
+              <p className="wallet-nft-meta">
+                {mintedNftLoading
+                  ? "Loading minted NFTs..."
+                  : mintedRemainderCount > 0
+                  ? `+${mintedRemainderCount} more minted`
+                  : mintedTokenIds.length > 0
+                  ? "Latest minted tokens"
+                  : "Mint your first NFT to fill this board."}
+              </p>
+              {mintedNftError ? <p className="wallet-nft-error">{mintedNftError}</p> : null}
             </section>
 
             <section className="wallet-pop-column wallet-pop-profile">
