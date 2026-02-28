@@ -1532,8 +1532,8 @@ a {
 }
 
 .mint-ui-mint-top-with-countdown .mint-ui-price-fiat {
-  margin-top: auto;
-  padding-top: 0.24rem;
+  margin-top: 0.22rem;
+  padding-top: 0;
 }
 
 .mint-ui-price-row {
