@@ -7,6 +7,7 @@ import {
   formatAddress,
   getReadContract,
   getWriteContract,
+  sendContractTxWithBufferedGas,
   TARGET_CHAIN_ID,
   withReadRetry,
 } from "../lib/contract";
@@ -98,6 +99,15 @@ const normalizeMintErrorMessage = (error: any) => {
   }
   if (error?.code === 4001 || lower.includes("user rejected") || lower.includes("rejected the request")) {
     return "Transaction was rejected in wallet.";
+  }
+  if (lower.includes("maxfeepergas cannot be less than maxpriorityfeepergas")) {
+    return "Wallet gas config mismatch detected. Retry mint now.";
+  }
+  if (lower.includes("nonce gap too high")) {
+    return "Wallet nonce was out of sync. Retry mint now.";
+  }
+  if (lower.includes("nonce too low") || lower.includes("replacement transaction underpriced")) {
+    return "Pending transaction conflict detected. Wait a few seconds, then retry mint.";
   }
   if (lower.includes("paused")) {
     return "Mint is currently paused by admin.";
@@ -436,7 +446,16 @@ export default function Home() {
         }
       }
       const totalValue = price.mul(quantity).add(fee.mul(quantity));
-      const tx = await contract.publicMint(quantity, proof, { value: totalValue });
+      const tx = await sendContractTxWithBufferedGas(
+        contract,
+        "publicMint",
+        [quantity, proof],
+        {
+          value: totalValue,
+          fallbackGasLimit: 360_000,
+          maxAttempts: 4,
+        }
+      );
       setStatus({ type: "pending", message: "Transaction submitted..." });
       await tx.wait();
       if (typeof window !== "undefined" && address) {
