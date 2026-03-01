@@ -816,64 +816,67 @@ export default function Home() {
             </article>
           </div>
 
-          <aside className="mint-ui-card mint-ui-mint-panel">
-            <div className="mint-ui-progress mint-ui-progress-card">
-              <div className="mint-ui-progress-head">
-                <span>MINT PROGRESS</span>
-                <span>{progressPercent.toFixed(1)}%</span>
+          <aside className="mint-ui-right">
+            <article className="mint-ui-card mint-ui-progress-card">
+              <div className="mint-ui-progress">
+                <div className="mint-ui-progress-head">
+                  <span>MINT PROGRESS</span>
+                  <span>{progressPercent.toFixed(1)}%</span>
+                </div>
+                <div className="mint-ui-progress-track">
+                  <div className="mint-ui-progress-fill" style={{ width: `${progressPercent}%` }} />
+                </div>
+                <div className="mint-ui-progress-meta">
+                  <span>{totalSupply} minted</span>
+                  <span>{maxSupply === "0" ? "?" : maxSupply} total</span>
+                </div>
               </div>
-              <div className="mint-ui-progress-track">
-                <div className="mint-ui-progress-fill" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <div className="mint-ui-progress-meta">
-                <span>{totalSupply} minted</span>
-                <span>{maxSupply === "0" ? "?" : maxSupply} total</span>
-              </div>
-            </div>
+            </article>
 
-            <div className={`mint-ui-mint-top${showUpcomingCountdown ? " mint-ui-mint-top-with-countdown" : ""}`}>
-              <div className="mint-ui-status-box">
-                <p className="mint-ui-mini-label">Status</p>
-                <p className={mintStatusClass}>{mintStatusText}</p>
-                {showUpcomingCountdown && nextMintCountdown && nextUpcomingPhase ? (
-                  <div className="mint-ui-status-countdown">
-                    <p className="mint-ui-status-countdown-phase">{nextUpcomingPhase.name || "Next phase"}</p>
-                    <div className="mint-ui-status-countdown-grid">
-                      <div className="mint-ui-status-countdown-item">
-                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.days}</span>
-                        <span className="mint-ui-status-countdown-unit">Days</span>
-                      </div>
-                      <div className="mint-ui-status-countdown-item">
-                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.hours}</span>
-                        <span className="mint-ui-status-countdown-unit">Hours</span>
-                      </div>
-                      <div className="mint-ui-status-countdown-item">
-                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.minutes}</span>
-                        <span className="mint-ui-status-countdown-unit">Mins</span>
-                      </div>
-                      <div className="mint-ui-status-countdown-item">
-                        <span className="mint-ui-status-countdown-value">{nextMintCountdown.seconds}</span>
-                        <span className="mint-ui-status-countdown-unit">Secs</span>
+            <article className="mint-ui-card mint-ui-mint-panel">
+              <div className={`mint-ui-mint-top${showUpcomingCountdown ? " mint-ui-mint-top-with-countdown" : ""}`}>
+                <div className="mint-ui-status-box">
+                  <p className="mint-ui-mini-label">Status</p>
+                  <p className={mintStatusClass}>{mintStatusText}</p>
+                  {showUpcomingCountdown && nextMintCountdown && nextUpcomingPhase ? (
+                    <div className="mint-ui-status-countdown">
+                      <p className="mint-ui-status-countdown-phase">{nextUpcomingPhase.name || "Next phase"}</p>
+                      <div className="mint-ui-status-countdown-grid">
+                        <div className="mint-ui-status-countdown-item">
+                          <span className="mint-ui-status-countdown-value">{nextMintCountdown.days}</span>
+                          <span className="mint-ui-status-countdown-unit">Days</span>
+                        </div>
+                        <div className="mint-ui-status-countdown-item">
+                          <span className="mint-ui-status-countdown-value">{nextMintCountdown.hours}</span>
+                          <span className="mint-ui-status-countdown-unit">Hours</span>
+                        </div>
+                        <div className="mint-ui-status-countdown-item">
+                          <span className="mint-ui-status-countdown-value">{nextMintCountdown.minutes}</span>
+                          <span className="mint-ui-status-countdown-unit">Mins</span>
+                        </div>
+                        <div className="mint-ui-status-countdown-item">
+                          <span className="mint-ui-status-countdown-value">{nextMintCountdown.seconds}</span>
+                          <span className="mint-ui-status-countdown-unit">Secs</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
-              <div className="mint-ui-price-box">
-                <p className="mint-ui-mini-label">Price</p>
-                <div className="mint-ui-price-row">
-                  <img src={ETH_ICON_ASSET} alt={`${NATIVE_SYMBOL} icon`} className="mint-ui-price-icon" />
-                  <p className="mint-ui-price">
-                    {activePhase ? `${activePhase.priceEth} ${NATIVE_SYMBOL}` : "-"}
-                  </p>
+                  ) : null}
                 </div>
-                {activePhase ? (
-                  <p className={`mint-ui-price-fiat ${activePhaseUsdText ? "" : "is-muted"}`}>
-                    {activePhaseUsdText || (ethUsdChecked ? "USD unavailable" : "USD syncing...")}
-                  </p>
-                ) : null}
+                <div className="mint-ui-price-box">
+                  <p className="mint-ui-mini-label">Price</p>
+                  <div className="mint-ui-price-row">
+                    <img src={ETH_ICON_ASSET} alt={`${NATIVE_SYMBOL} icon`} className="mint-ui-price-icon" />
+                    <p className="mint-ui-price">
+                      {activePhase ? `${activePhase.priceEth} ${NATIVE_SYMBOL}` : "-"}
+                    </p>
+                  </div>
+                  {activePhase ? (
+                    <p className={`mint-ui-price-fiat ${activePhaseUsdText ? "" : "is-muted"}`}>
+                      {activePhaseUsdText || (ethUsdChecked ? "USD unavailable" : "USD syncing...")}
+                    </p>
+                  ) : null}
+                </div>
               </div>
-            </div>
 
             <div className="mint-ui-qty-box">
               <span className="mint-ui-mini-label">Quantity</span>
@@ -947,9 +950,10 @@ export default function Home() {
               {isMinting ? "PROCESSING..." : canMint ? "MINT NOW" : isConnected ? "LOCKED" : "CONNECT WALLET TO PARTICIPATE"}
             </button>
 
-            <div className="mint-ui-note">
-              Verified smart contract on {NETWORK_NAME}. Launchpad fee per NFT: {feePerNft.toFixed(4)} {NATIVE_SYMBOL}.
-            </div>
+              <div className="mint-ui-note">
+                Verified smart contract on {NETWORK_NAME}. Launchpad fee per NFT: {feePerNft.toFixed(4)} {NATIVE_SYMBOL}.
+              </div>
+            </article>
           </aside>
         </section>
       </main>
