@@ -519,6 +519,10 @@ export default function Home() {
   const allowlistRequired = Boolean(activePhase?.allowlistEnabled);
   const allowlistOk = !allowlistRequired || Boolean(allowlistEligible);
   const remainingSupply = Math.max(maxNum - totalNum, 0);
+  const progressPercentRounded = Math.max(0, Math.round(progressPercent));
+  const progressMintedText = totalNum.toLocaleString("en-US");
+  const progressMaxText = maxNum > 0 ? maxNum.toLocaleString("en-US") : "?";
+  const progressRemainingText = maxNum > 0 ? remainingSupply.toLocaleString("en-US") : "?";
   const phaseLimit = activePhase?.limitPerWallet || 1;
   const maxMintable = Math.max(0, Math.min(phaseLimit, remainingSupply || phaseLimit));
   const mintPricePerNft = Number(activePhase?.priceEth || 0);
@@ -820,16 +824,22 @@ export default function Home() {
             <article className="mint-ui-card mint-ui-progress-card">
               <div className="mint-ui-progress">
                 <div className="mint-ui-progress-head">
-                  <span>MINT PROGRESS</span>
-                  <span>{progressPercent.toFixed(1)}%</span>
+                  <span className="mint-ui-progress-label">MINT PROGRESS</span>
                 </div>
+                <p className="mint-ui-progress-count">
+                  <span>{progressMintedText}</span>
+                  <span className="mint-ui-progress-count-divider">/</span>
+                  <span>{progressMaxText}</span>
+                  <span className="mint-ui-progress-count-suffix">Minted</span>
+                </p>
                 <div className="mint-ui-progress-track">
                   <div className="mint-ui-progress-fill" style={{ width: `${progressPercent}%` }} />
                 </div>
-                <div className="mint-ui-progress-meta">
-                  <span>{totalSupply} minted</span>
-                  <span>{maxSupply === "0" ? "?" : maxSupply} total</span>
-                </div>
+                <p className="mint-ui-progress-meta">
+                  <span>{progressPercentRounded}% Completed</span>
+                  <span aria-hidden="true">•</span>
+                  <span>{progressRemainingText} Remaining</span>
+                </p>
               </div>
             </article>
 
