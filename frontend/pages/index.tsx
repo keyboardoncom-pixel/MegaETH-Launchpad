@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type ComponentType, type SVGProps } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType, type SVGProps } from "react";
 import { useActiveAccount, useActiveWalletChain, useActiveWalletConnectionStatus } from "thirdweb/react";
 import { ethers } from "ethers";
-import { ArrowPathIcon, ClockIcon, MinusCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CheckBadgeIcon, ClockIcon, MinusCircleIcon } from "@heroicons/react/24/outline";
 import {
   CONTRACT_ADDRESS,
   formatAddress,
@@ -162,7 +162,7 @@ const normalizeExternalUrl = (raw: string) => {
   }
 };
 
-type MintGlyphName = "refresh" | "clock" | "circle";
+type MintGlyphName = "refresh" | "clock" | "circle" | "check";
 
 type MintGlyphComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
@@ -170,6 +170,7 @@ const MINT_GLYPHS: Record<MintGlyphName, MintGlyphComponent> = {
   refresh: ArrowPathIcon,
   clock: ClockIcon,
   circle: MinusCircleIcon,
+  check: CheckBadgeIcon,
 };
 
 function MintGlyph({ name, className = "" }: { name: MintGlyphName; className?: string }) {
@@ -208,6 +209,7 @@ export default function Home() {
   const [paused, setPaused] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [refreshing, setRefreshing] = useState(false);
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [status, setStatus] = useState<TxStatus>({ type: "idle", message: "" });
   const [phases, setPhases] = useState<Phase[]>([]);
   const [clockMs, setClockMs] = useState(() => Date.now());
@@ -391,7 +393,7 @@ export default function Home() {
     };
   }, [mounted]);
 
-  const fetchAllowlistProof = async (phaseId: number, wallet: string) => {
+  const fetchAllowlistProof = useCallback(async (phaseId: number, wallet: string) => {
     const walletKey = wallet.toLowerCase();
     const extractProof = (data: any) => {
       const proof = data?.proofs?.[walletKey];
@@ -416,6 +418,58 @@ export default function Home() {
       return extractProof(staticData);
     } catch {
       return [];
+    }
+  }, []);
+
+  const resolveAllowlistEligibility = useCallback(
+    async (phase: Phase, wallet: string) => {
+      const contract = getReadContract();
+      const allowed = await withReadRetry<any>(() => contract.phaseAllowlist(phase.id, wallet));
+      if (allowed) {
+        return true;
+      }
+      if (phase.allowlistRoot && phase.allowlistRoot !== ethers.constants.HashZero) {
+        const proof = await fetchAllowlistProof(phase.id, wallet);
+        return proof.length > 0;
+      }
+      return false;
+    },
+    [fetchAllowlistProof]
+  );
+
+  const handleCheckEligibility = async () => {
+    if (checkingEligibility || isMinting) {
+      return;
+    }
+    if (!isConnected || !address) {
+      setStatus({ type: "error", message: "Connect a wallet first to check eligibility." });
+      return;
+    }
+    if (!activePhase) {
+      setStatus({ type: "error", message: "No active phase available to check." });
+      return;
+    }
+    if (!activePhase.allowlistEnabled) {
+      setAllowlistEligible(true);
+      setStatus({ type: "success", message: "Current phase is public. This wallet can mint." });
+      return;
+    }
+    try {
+      setCheckingEligibility(true);
+      setStatus({ type: "pending", message: "Checking eligibility..." });
+      const eligible = await resolveAllowlistEligibility(activePhase, address);
+      setAllowlistEligible(eligible);
+      setStatus({
+        type: eligible ? "success" : "error",
+        message: eligible
+          ? "Wallet is eligible for current allowlist phase."
+          : "Wallet is not eligible for current allowlist phase.",
+      });
+    } catch {
+      setAllowlistEligible(false);
+      setStatus({ type: "error", message: "Failed to check eligibility. Please try again." });
+    } finally {
+      setCheckingEligibility(false);
     }
   };
 
@@ -598,24 +652,14 @@ export default function Home() {
     }
     const loadEligibility = async () => {
       try {
-        const contract = getReadContract();
-        const allowed = await withReadRetry<any>(() => contract.phaseAllowlist(activePhase.id, address));
-        if (allowed) {
-          setAllowlistEligible(true);
-          return;
-        }
-        if (activePhase.allowlistRoot && activePhase.allowlistRoot !== ethers.constants.HashZero) {
-          const proof = await fetchAllowlistProof(activePhase.id, address);
-          setAllowlistEligible(proof.length > 0);
-          return;
-        }
-        setAllowlistEligible(false);
+        const eligible = await resolveAllowlistEligibility(activePhase, address);
+        setAllowlistEligible(eligible);
       } catch {
         setAllowlistEligible(false);
       }
     };
     loadEligibility();
-  }, [mounted, address, activePhase]);
+  }, [mounted, address, activePhase, resolveAllowlistEligibility]);
 
   const handleShare = async () => {
     try {
@@ -769,17 +813,30 @@ export default function Home() {
             <article className="mint-ui-card">
               <div className="mint-ui-card-head">
                 <h2 className="mint-ui-section-title">Phase Schedule</h2>
-                <button
-                  className="mint-ui-refresh-btn"
-                  onClick={() => void refreshAll()}
-                  disabled={refreshing || isMinting}
-                >
-                  <MintGlyph
-                    name="refresh"
-                    className={`mint-ui-refresh-icon ${refreshing ? "is-spinning" : ""}`}
-                  />
-                  <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
-                </button>
+                <div className="mint-ui-card-actions">
+                  <button
+                    className="mint-ui-refresh-btn"
+                    onClick={() => void handleCheckEligibility()}
+                    disabled={checkingEligibility || refreshing || isMinting}
+                  >
+                    <MintGlyph
+                      name="check"
+                      className={`mint-ui-refresh-icon ${checkingEligibility ? "is-spinning" : ""}`}
+                    />
+                    <span>{checkingEligibility ? "Checking..." : "Check Eligibility"}</span>
+                  </button>
+                  <button
+                    className="mint-ui-refresh-btn"
+                    onClick={() => void refreshAll()}
+                    disabled={refreshing || checkingEligibility || isMinting}
+                  >
+                    <MintGlyph
+                      name="refresh"
+                      className={`mint-ui-refresh-icon ${refreshing ? "is-spinning" : ""}`}
+                    />
+                    <span>{refreshing ? "Refreshing..." : "Refresh"}</span>
+                  </button>
+                </div>
               </div>
               <div className="mint-ui-phase-list">
                 {phases.length === 0 ? (
@@ -919,32 +976,8 @@ export default function Home() {
                 <span>{activePhase?.limitPerWallet || "-"}</span>
               </div>
               <div className="mint-ui-breakdown-row">
-                <span>Access</span>
-                <span>
-                  {allowlistRequired
-                    ? allowlistEligible === null
-                      ? "Checking..."
-                      : allowlistOk
-                      ? "Allowlisted"
-                      : "Denied"
-                    : "Public"}
-                </span>
-              </div>
-              <div className="mint-ui-breakdown-row">
-                <span>Remaining</span>
-                <span>{remainingSupply}</span>
-              </div>
-              <div className="mint-ui-breakdown-row">
                 <span>Mint Cost</span>
                 <span>{mintCost.toFixed(4)} {NATIVE_SYMBOL}</span>
-              </div>
-              <div className="mint-ui-breakdown-row">
-                <span>Launchpad Fee</span>
-                <span>{feeCost.toFixed(4)} {NATIVE_SYMBOL}</span>
-              </div>
-              <div className="mint-ui-breakdown-row mint-ui-breakdown-total">
-                <span>Total</span>
-                <span>{totalCost.toFixed(4)} {NATIVE_SYMBOL}</span>
               </div>
             </div>
 
@@ -957,7 +990,15 @@ export default function Home() {
             </div>
 
             <button className="mint-ui-submit" disabled={!canMint} onClick={handleMint}>
-              {isMinting ? "PROCESSING..." : canMint ? "MINT NOW" : isConnected ? "LOCKED" : "CONNECT WALLET TO PARTICIPATE"}
+              {isMinting
+                ? "PROCESSING..."
+                : canMint
+                ? "MINT NOW"
+                : isConnected && isCorrectChain && allowlistRequired && allowlistEligible === false
+                ? "NOT ELIGIBLE"
+                : isConnected
+                ? "LOCKED"
+                : "CONNECT WALLET TO PARTICIPATE"}
             </button>
 
               <div className="mint-ui-note">

@@ -1258,6 +1258,14 @@ a {
   gap: 0.7rem;
 }
 
+.mint-ui-card-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
+
 .mint-ui-refresh-btn {
   border: 1px solid rgba(236, 232, 232, 0.38);
   border-radius: 0.14rem;
@@ -1595,7 +1603,7 @@ a {
       transparent 1px,
       transparent 100px
     );
-  padding: 0.68rem 0.74rem;
+  padding: 1rem;
   overflow: hidden;
 }
 
@@ -2200,13 +2208,22 @@ a {
     display: none;
   }
 
+  .mint-ui-card-head {
+    align-items: flex-start;
+  }
+
+  .mint-ui-card-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
   .mint-ui-status-countdown-grid {
     min-width: 0;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mint-ui-progress-card {
-    padding: 0.56rem 0.58rem;
+    padding: 1rem;
   }
 
   .mint-ui-progress-head {
