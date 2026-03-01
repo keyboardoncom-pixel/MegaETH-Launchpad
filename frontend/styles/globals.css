@@ -1849,6 +1849,58 @@ a {
   z-index: 95;
 }
 
+.mint-ui-success-toast {
+  border-color: rgba(144, 215, 159, 0.46);
+  background:
+    linear-gradient(180deg, rgba(30, 45, 36, 0.94), rgba(22, 28, 25, 0.96)),
+    repeating-linear-gradient(
+      to right,
+      rgba(236, 232, 232, 0.02),
+      rgba(236, 232, 232, 0.02) 1px,
+      transparent 1px,
+      transparent 72px
+    );
+  display: flex;
+  flex-direction: column;
+  gap: 0.36rem;
+}
+
+.mint-ui-success-toast-title {
+  margin: 0;
+  color: var(--moon-white);
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+}
+
+.mint-ui-success-toast-token {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+
+.mint-ui-success-toast-links {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
+  flex-wrap: wrap;
+}
+
+.mint-ui-success-toast-link {
+  border: 1px solid rgba(236, 232, 232, 0.34);
+  border-radius: 0.14rem;
+  color: var(--moon-white);
+  background: rgba(25, 25, 26, 0.58);
+  text-decoration: none;
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  padding: 0.14rem 0.5rem;
+}
+
+.mint-ui-success-toast-link:hover {
+  border-color: rgba(236, 232, 232, 0.52);
+}
+
 .mint-ui-site-footer {
   width: 100%;
   margin: 0.8rem 0 0;

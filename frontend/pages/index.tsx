@@ -79,6 +79,13 @@ type TxStatus = {
   message: string;
 };
 
+type MintSuccessToast = {
+  title: string;
+  tokenLine: string;
+  explorerTxUrl: string;
+  nftUrl: string;
+};
+
 const toCountdownParts = (diffMs: number) => {
   const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
   const days = Math.floor(totalSeconds / 86_400);
@@ -134,6 +141,66 @@ const normalizeMintErrorMessage = (error: any) => {
   }
 
   return "Mint failed. Please try again or check the transaction in your wallet.";
+};
+
+const collectMintedTokenIds = (receipt: any, contract: any, recipient?: string) => {
+  const logs = Array.isArray(receipt?.logs) ? receipt.logs : [];
+  const iface = contract?.interface;
+  if (!iface) {
+    return [] as string[];
+  }
+
+  const normalizedRecipient = (recipient || "").toLowerCase();
+  const seen = new Set<string>();
+  for (const log of logs) {
+    if (!log?.topics || !log?.address) continue;
+    if (CONTRACT_ADDRESS && String(log.address).toLowerCase() !== CONTRACT_ADDRESS.toLowerCase()) continue;
+    try {
+      const parsed = iface.parseLog(log);
+      if (!parsed || parsed.name !== "Transfer") continue;
+      const from = String(parsed.args?.from || "").toLowerCase();
+      const to = String(parsed.args?.to || "").toLowerCase();
+      if (from !== ethers.constants.AddressZero.toLowerCase()) continue;
+      if (normalizedRecipient && to !== normalizedRecipient) continue;
+      const tokenId = parsed.args?.tokenId?.toString?.();
+      if (tokenId) {
+        seen.add(tokenId);
+      }
+    } catch {
+      // ignore unknown logs
+    }
+  }
+
+  return Array.from(seen).sort((a, b) => {
+    try {
+      const left = BigInt(a);
+      const right = BigInt(b);
+      return left < right ? -1 : left > right ? 1 : 0;
+    } catch {
+      return a.localeCompare(b);
+    }
+  });
+};
+
+const formatMintedTokenLine = (tokenIds: string[]) => {
+  if (!tokenIds.length) {
+    return "Token minted successfully";
+  }
+  if (tokenIds.length === 1) {
+    return `Token ID #${tokenIds[0]}`;
+  }
+
+  let isConsecutive = true;
+  for (let index = 1; index < tokenIds.length; index += 1) {
+    if (BigInt(tokenIds[index]) !== BigInt(tokenIds[index - 1]) + 1n) {
+      isConsecutive = false;
+      break;
+    }
+  }
+  if (isConsecutive) {
+    return `Token IDs #${tokenIds[0]} - #${tokenIds[tokenIds.length - 1]}`;
+  }
+  return `Token IDs #${tokenIds[0]} +${tokenIds.length - 1} more`;
 };
 
 const resolveMediaUri = (uri: string) => {
@@ -211,6 +278,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const [status, setStatus] = useState<TxStatus>({ type: "idle", message: "" });
+  const [mintSuccessToast, setMintSuccessToast] = useState<MintSuccessToast | null>(null);
   const [phases, setPhases] = useState<Phase[]>([]);
   const [clockMs, setClockMs] = useState(() => Date.now());
   const [allowlistEligible, setAllowlistEligible] = useState<boolean | null>(null);
@@ -477,6 +545,7 @@ export default function Home() {
     if (status.type === "pending") {
       return;
     }
+    setMintSuccessToast(null);
     if (!isConnected) {
       setStatus({ type: "error", message: "Connect a wallet first" });
       return;
@@ -531,14 +600,29 @@ export default function Home() {
         }
       );
       setStatus({ type: "pending", message: "Transaction submitted..." });
-      await tx.wait();
+      const receipt = await tx.wait();
+      const mintedTokenIds = collectMintedTokenIds(receipt, contract, address || undefined);
+      const tokenLine = formatMintedTokenLine(mintedTokenIds);
+      const primaryTokenId = mintedTokenIds[0] || "";
+      const explorerBase = BLOCK_EXPLORER_URL.replace(/\/$/, "");
+      const explorerTxUrl = explorerBase && tx?.hash ? `${explorerBase}/tx/${tx.hash}` : "";
+      const nftUrl =
+        explorerBase && primaryTokenId && CONTRACT_ADDRESS
+          ? `${explorerBase}/token/${CONTRACT_ADDRESS}?a=${primaryTokenId}`
+          : "";
+      setMintSuccessToast({
+        title: "🎉 Mint Successful!",
+        tokenLine,
+        explorerTxUrl,
+        nftUrl,
+      });
       if (typeof window !== "undefined" && address) {
         const txKey = `megaeth-launchpad.wallet-tx-count.${address.toLowerCase()}`;
         const currentTxCount = Number(window.localStorage.getItem(txKey) || "0");
         const nextTxCount = Number.isFinite(currentTxCount) && currentTxCount > 0 ? currentTxCount + 1 : 1;
         window.localStorage.setItem(txKey, String(nextTxCount));
       }
-      setStatus({ type: "success", message: "Mint successful!" });
+      setStatus({ type: "idle", message: "" });
       await refreshAll();
     } catch (error: any) {
       setStatus({
@@ -688,6 +772,14 @@ export default function Home() {
     }, 3200);
     return () => window.clearTimeout(timeout);
   }, [status.message, status.type]);
+
+  useEffect(() => {
+    if (!mintSuccessToast) return;
+    const timeout = window.setTimeout(() => {
+      setMintSuccessToast(null);
+    }, 9000);
+    return () => window.clearTimeout(timeout);
+  }, [mintSuccessToast]);
 
   if (!mounted) {
     return <div className="bg-hero min-h-screen text-white" />;
@@ -1030,15 +1122,45 @@ export default function Home() {
         </section>
       </footer>
 
-      {status.message ? (
+      {mintSuccessToast || status.message ? (
         <div className="admin-toast-stack mint-ui-toast-stack">
-          <div
-            className={`admin-toast ${
-              status.type === "success" ? "is-success" : status.type === "error" ? "is-error" : "is-pending"
-            }`}
-          >
-            {status.message}
-          </div>
+          {mintSuccessToast ? (
+            <div className="admin-toast is-success mint-ui-success-toast">
+              <p className="mint-ui-success-toast-title">{mintSuccessToast.title}</p>
+              <p className="mint-ui-success-toast-token">{mintSuccessToast.tokenLine}</p>
+              <div className="mint-ui-success-toast-links">
+                {mintSuccessToast.explorerTxUrl ? (
+                  <a
+                    href={mintSuccessToast.explorerTxUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mint-ui-success-toast-link"
+                  >
+                    View on Explorer
+                  </a>
+                ) : null}
+                {mintSuccessToast.nftUrl ? (
+                  <a
+                    href={mintSuccessToast.nftUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mint-ui-success-toast-link"
+                  >
+                    View NFT
+                  </a>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {status.message ? (
+            <div
+              className={`admin-toast ${
+                status.type === "success" ? "is-success" : status.type === "error" ? "is-error" : "is-pending"
+              }`}
+            >
+              {status.message}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
