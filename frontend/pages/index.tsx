@@ -817,6 +817,20 @@ export default function Home() {
           </div>
 
           <aside className="mint-ui-card mint-ui-mint-panel">
+            <div className="mint-ui-progress mint-ui-progress-card">
+              <div className="mint-ui-progress-head">
+                <span>MINT PROGRESS</span>
+                <span>{progressPercent.toFixed(1)}%</span>
+              </div>
+              <div className="mint-ui-progress-track">
+                <div className="mint-ui-progress-fill" style={{ width: `${progressPercent}%` }} />
+              </div>
+              <div className="mint-ui-progress-meta">
+                <span>{totalSupply} minted</span>
+                <span>{maxSupply === "0" ? "?" : maxSupply} total</span>
+              </div>
+            </div>
+
             <div className={`mint-ui-mint-top${showUpcomingCountdown ? " mint-ui-mint-top-with-countdown" : ""}`}>
               <div className="mint-ui-status-box">
                 <p className="mint-ui-mini-label">Status</p>
@@ -858,20 +872,6 @@ export default function Home() {
                     {activePhaseUsdText || (ethUsdChecked ? "USD unavailable" : "USD syncing...")}
                   </p>
                 ) : null}
-              </div>
-            </div>
-
-            <div className="mint-ui-progress">
-              <div className="mint-ui-progress-head">
-                <span>MINT PROGRESS</span>
-                <span>{progressPercent.toFixed(1)}%</span>
-              </div>
-              <div className="mint-ui-progress-track">
-                <div className="mint-ui-progress-fill" style={{ width: `${progressPercent}%` }} />
-              </div>
-              <div className="mint-ui-progress-meta">
-                <span>{totalSupply} minted</span>
-                <span>{maxSupply === "0" ? "?" : maxSupply} total</span>
               </div>
             </div>
 
